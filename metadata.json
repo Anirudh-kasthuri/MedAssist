@@ -1,0 +1,8 @@
+{
+  "name": "MedAssist",
+  "description": "A minimalist, multimodal AI medical assistant for doctors and patients.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
