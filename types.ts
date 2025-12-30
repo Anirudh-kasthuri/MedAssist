@@ -1,4 +1,5 @@
 export enum ViewState {
+  LAUNCHPAD = 'LAUNCHPAD',
   DASHBOARD = 'DASHBOARD',
   IMAGE_ANALYSIS = 'IMAGE_ANALYSIS',
   VOICE_ANALYSIS = 'VOICE_ANALYSIS',
@@ -10,6 +11,8 @@ export enum ViewState {
 export interface DiagnosticResult {
   title: string;
   summary: string;
+  technicalAnalysis?: string; // For Doctors
+  confidence?: number;        // For Doctors
   recommendations: string[];
   severity: 'low' | 'medium' | 'high';
   disclaimer: string;
@@ -26,6 +29,7 @@ export interface AnalysisSession {
 
 export enum Language {
   ENGLISH = 'English',
+  HINDI = 'Hindi',
   TELUGU = 'Telugu'
 }
 
@@ -34,6 +38,7 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  role: 'doctor' | 'patient';
 }
 
 export interface AuthState {

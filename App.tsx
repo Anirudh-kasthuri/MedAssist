@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import DashboardView from './components/Dashboard/DashboardView';
 import AnalysisView from './components/Analysis/AnalysisView';
 import LoginView from './components/Auth/LoginView';
+import SettingsView from './components/Settings/SettingsView';
+import LaunchpadView from './components/Launchpad/LaunchpadView';
+import LanguageSelector from './components/Shared/LanguageSelector';
 import { ViewState, Language, User } from './types';
 import { getHiddenHealthTip } from './services/geminiService';
-import { getSession, logout } from './services/backendService';
-import { X, Sparkles, Globe, LogOut, Moon, Sun, Menu, ArrowLeft } from 'lucide-react';
+import { getSession, logout, getStoredUsers, switchUser } from './services/backendService';
+import { X, Sparkles, LogOut, Moon, Sun, Menu, ArrowLeft, UserPlus, ChevronDown, BookOpen, ExternalLink } from 'lucide-react';
 
 const App: React.FC = () => {
   // Auth State
   const [user, setUser] = useState<User | null>(null);
 
-  const [currentView, setCurrentView] = useState<ViewState>(ViewState.DASHBOARD);
+  // Default to LAUNCHPAD for fast access
+  const [currentView, setCurrentView] = useState<ViewState>(ViewState.LAUNCHPAD);
   const [language, setLanguage] = useState<Language>(Language.ENGLISH);
   
   // Layout & Theme State
@@ -21,6 +25,10 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [highContrast, setHighContrast] = useState(false);
   
+  // Profile Menu State
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
   // Hidden Feature States
   const [isAdmin, setIsAdmin] = useState(false);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
@@ -40,11 +48,39 @@ const App: React.FC = () => {
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       setTheme('dark');
     }
+
+    // Close profile menu when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const handleLogout = async () => {
     await logout();
     setUser(null);
+    setIsProfileMenuOpen(false);
+  };
+
+  const handleAddAccount = async () => {
+    // Determine if we just want to clear session or keep state.
+    // For "Add Account", we clear the current user state so LoginView renders,
+    // but we don't clear the localStorage (so other users persist).
+    await logout(); 
+    setUser(null);
+    setIsProfileMenuOpen(false);
+  };
+
+  const handleSwitchUser = async (targetUserId: string) => {
+    const newUser = await switchUser(targetUserId);
+    if (newUser) {
+      setUser(newUser);
+      setIsProfileMenuOpen(false);
+      setCurrentView(ViewState.LAUNCHPAD); // Reset view on switch
+    }
   };
 
   const toggleTheme = () => {
@@ -52,7 +88,7 @@ const App: React.FC = () => {
   };
 
   // --- Logic for Logo Long Press (Easter Egg) ---
-  const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [pressTimer, setPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogoMouseDown = () => {
     const timer = setTimeout(async () => {
@@ -83,34 +119,38 @@ const App: React.FC = () => {
     setTapCount(prev => prev + 1);
   };
 
-  // If not logged in, show Login View
-  if (!user) {
-    return <LoginView onLogin={setUser} />;
-  }
-
   // Common Back Button Component
   const BackButton = () => (
-    <div className="flex items-center mb-4">
+    <div className="flex items-center mb-6">
       <button 
-        onClick={() => setCurrentView(ViewState.DASHBOARD)}
-        className="group flex items-center space-x-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors px-2 py-1 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50"
+        onClick={() => setCurrentView(ViewState.LAUNCHPAD)}
+        className="group flex items-center space-x-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors px-2 py-1 -ml-2 rounded-lg"
       >
         <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-        <span className="font-medium text-sm">Back to Dashboard</span>
+        <span className="font-medium text-sm">Return Home</span>
       </button>
     </div>
   );
 
+  const mainClasses = `min-h-screen font-sans antialiased selection:bg-zinc-200 selection:text-black dark:selection:bg-zinc-800 dark:selection:text-white transition-colors duration-300 ${theme === 'dark' ? 'dark bg-black text-white' : 'bg-white text-black'} ${highContrast ? 'grayscale contrast-125' : ''}`;
+
+  // If not logged in, show Login View
+  if (!user) {
+    return (
+      <div className={mainClasses}>
+         <LoginView onLogin={setUser} />
+      </div>
+    );
+  }
+
+  // Get all users for the switcher
+  const storedUsers = getStoredUsers();
+
   return (
-    <div className={`min-h-screen font-sans selection:bg-teal-100 overflow-x-hidden transition-colors duration-300 ${theme === 'dark' ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} ${highContrast ? 'grayscale contrast-125' : ''}`}>
+    <div className={mainClasses}>
       
-      {/* Background Ambience */}
-      {!highContrast && (
-        <>
-          <div className={`fixed -top-40 -left-40 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl animate-blob pointer-events-none transition-colors duration-500 ${theme === 'dark' ? 'bg-teal-900/20 opacity-20' : 'bg-teal-200 opacity-30'}`}></div>
-          <div className={`fixed -bottom-40 -right-40 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000 pointer-events-none transition-colors duration-500 ${theme === 'dark' ? 'bg-blue-900/20 opacity-20' : 'bg-blue-200 opacity-30'}`}></div>
-        </>
-      )}
+      {/* Background Ambience - Removed for Strict Monochrome */}
+      {/* No colored blur or blobs. Pure White/Black */}
 
       {/* Navigation */}
       <Sidebar 
@@ -128,212 +168,227 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main 
-        className={`pt-6 px-4 md:pr-6 pb-24 md:pb-6 min-h-screen transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'md:pl-24' : 'md:pl-64'}`}
+        className={`pt-6 px-4 md:pr-12 pb-24 md:pb-6 min-h-screen transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'md:pl-28' : 'md:pl-72'}`}
       >
         
         {/* Header */}
-        <header className="flex justify-between items-center mb-8 h-12 sticky top-4 z-40 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-sm rounded-2xl md:bg-transparent md:backdrop-filter-none md:dark:bg-transparent px-3 md:px-0 shadow-sm md:shadow-none border border-slate-200/50 md:border-none dark:border-slate-800/50">
+        {currentView !== ViewState.SETTINGS && (
+        <header className="flex justify-between items-center mb-8 h-12 sticky top-4 z-40 md:static md:h-auto px-2">
            <div className="flex items-center space-x-2">
              {/* Mobile Menu Toggle */}
              <button 
                onClick={() => setIsMobileMenuOpen(true)}
-               className="md:hidden p-2 -ml-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+               className="md:hidden p-2 -ml-2 rounded-lg text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
              >
                <Menu className="w-6 h-6" />
              </button>
 
              <div 
-               className="flex items-center space-x-2 cursor-pointer select-none"
-               onMouseDown={handleLogoMouseDown}
-               onMouseUp={handleLogoMouseUp}
-               onTouchStart={handleLogoMouseDown}
-               onTouchEnd={handleLogoMouseUp}
+               className="flex items-center space-x-2 cursor-pointer select-none md:hidden"
              >
-               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-lg active:scale-95 transition-transform hover:scale-105 ${highContrast ? 'bg-black shadow-none' : theme === 'dark' ? 'bg-slate-800 shadow-slate-900' : 'bg-slate-900 shadow-slate-200'}`}>
-                 AI
-               </div>
-               <span className="text-sm font-semibold text-slate-400 dark:text-slate-200 hidden sm:block">MedAssist</span>
+               <span className="text-sm font-bold text-black dark:text-white">MedAssist</span>
              </div>
            </div>
 
-           <div className="flex items-center space-x-2 md:space-x-4">
+           <div className="flex items-center space-x-2 md:space-x-6">
               
               {/* Theme Toggle Icon */}
               <button 
                 onClick={toggleTheme}
-                className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-300 transition-colors"
+                className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-600 dark:text-zinc-400 transition-colors"
                 title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
               >
                 {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
 
-              <div className="relative group">
-                 <button className="p-2 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-300 transition-colors flex items-center space-x-2 border border-transparent">
-                    <Globe className="w-4 h-4" />
-                    <span className="text-xs font-medium hidden sm:inline">{language}</span>
-                 </button>
-                 <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all transform origin-top-right z-50">
-                    {Object.values(Language).map(lang => (
-                      <button 
-                        key={lang}
-                        onClick={() => setLanguage(lang)}
-                        className="block w-full text-left px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 first:rounded-t-xl last:rounded-b-xl transition-colors"
-                      >
-                        {lang}
-                      </button>
-                    ))}
-                 </div>
-              </div>
+              {/* Language Selector */}
+              <LanguageSelector 
+                currentLanguage={language} 
+                onLanguageChange={setLanguage} 
+                variant="header"
+              />
 
-              {/* User Profile / Logout */}
-              <div className="flex items-center space-x-3 pl-4 border-l border-slate-200 dark:border-slate-700">
-                <div className="text-right hidden sm:block">
-                  <p className="text-xs font-bold text-slate-800 dark:text-white">{user.name}</p>
-                  <button onClick={handleLogout} className="text-[10px] text-rose-500 hover:underline flex items-center justify-end hover:text-rose-600 transition-colors">
-                    Sign Out
-                  </button>
-                </div>
-                {/* Mobile Logout Icon */}
-                <button onClick={handleLogout} className="sm:hidden text-rose-500 p-2 hover:bg-rose-50/10 rounded-full transition-colors">
-                  <LogOut className="w-5 h-5" />
+              {/* User Profile / Multi-User Switcher */}
+              <div className="relative pl-6 border-l border-zinc-200 dark:border-zinc-800" ref={profileMenuRef}>
+                <button 
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  className="flex items-center space-x-3 group outline-none"
+                >
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm font-bold text-black dark:text-white">{user.name}</p>
+                    <p className="text-[10px] text-zinc-500 font-mono uppercase tracking-wide">ID: {user.id.slice(-4)}</p>
+                  </div>
+                  <div className="relative">
+                     <img 
+                      src={user.avatar} 
+                      alt="User" 
+                      className="w-10 h-10 rounded-full border-2 border-transparent group-hover:border-black dark:group-hover:border-white shadow-sm cursor-pointer grayscale group-hover:grayscale-0 transition-all duration-300" 
+                    />
+                    <div className="absolute -bottom-1 -right-1 bg-white dark:bg-black rounded-full p-0.5 border border-zinc-200 dark:border-zinc-800">
+                      <ChevronDown className="w-3 h-3 text-zinc-500" />
+                    </div>
+                  </div>
                 </button>
-                <img 
-                  src={user.avatar} 
-                  alt="User" 
-                  className="w-8 h-8 rounded-full border-2 border-white dark:border-slate-700 shadow-md hover:scale-110 transition-transform cursor-pointer" 
-                  title="Profile"
-                />
+
+                {/* Dropdown Menu */}
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 mt-4 w-72 bg-white dark:bg-black rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-enter origin-top-right z-50 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-5 py-4 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Active Account</p>
+                      <div className="flex items-center space-x-3">
+                         <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
+                         <div className="overflow-hidden">
+                            <p className="text-sm font-bold text-black dark:text-white truncate">{user.name}</p>
+                            <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                            <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-zinc-100 dark:bg-zinc-800 text-zinc-500">
+                              {user.role}
+                            </span>
+                         </div>
+                      </div>
+                    </div>
+
+                    {/* User List */}
+                    <div className="py-2 max-h-48 overflow-y-auto custom-scrollbar">
+                      <p className="px-5 py-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Switch Profile</p>
+                      {storedUsers.filter(u => u.id !== user.id).map((u) => (
+                        <button 
+                          key={u.id}
+                          onClick={() => handleSwitchUser(u.id)}
+                          className="w-full px-5 py-2.5 flex items-center justify-between hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors group"
+                        >
+                          <div className="flex items-center space-x-3">
+                             <img src={u.avatar} alt={u.name} className="w-8 h-8 rounded-full opacity-60 group-hover:opacity-100 grayscale group-hover:grayscale-0 transition-all" />
+                             <div className="text-left">
+                                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-black dark:group-hover:text-white">{u.name}</p>
+                             </div>
+                          </div>
+                        </button>
+                      ))}
+                      {storedUsers.length <= 1 && (
+                         <div className="px-5 py-2 text-xs text-zinc-400 italic">No other profiles found.</div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="p-2 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex flex-col gap-1">
+                      <button 
+                        onClick={handleAddAccount}
+                        className="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-zinc-600 dark:text-zinc-400 hover:bg-white dark:hover:bg-black hover:text-black dark:hover:text-white transition-all text-sm font-medium border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800"
+                      >
+                         <div className="p-1.5 bg-zinc-200 dark:bg-zinc-800 rounded-lg">
+                           <UserPlus className="w-4 h-4" />
+                         </div>
+                         <span>Add Another Account</span>
+                      </button>
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full flex items-center space-x-3 px-3 py-2 rounded-xl text-zinc-600 dark:text-zinc-400 hover:bg-white dark:hover:bg-black hover:text-red-600 dark:hover:text-red-400 transition-all text-sm font-medium border border-transparent hover:border-zinc-200 dark:hover:border-zinc-800"
+                      >
+                         <div className="p-1.5 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-500">
+                           <LogOut className="w-4 h-4" />
+                         </div>
+                         <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
            </div>
         </header>
+        )}
 
-        {/* View Routing with Key-based Animation Reset */}
-        <div key={currentView} className="fade-in-section animate-fade-in">
-          {currentView === ViewState.DASHBOARD && <DashboardView onViewChange={setCurrentView} />}
-          
-          {(currentView === ViewState.IMAGE_ANALYSIS) && (
-            <AnalysisView 
-              language={language} 
-              onBack={() => setCurrentView(ViewState.DASHBOARD)} 
-              initialTab="image"
-            />
-          )}
+        {/* Dynamic View Rendering */}
+        {currentView === ViewState.LAUNCHPAD && (
+          <LaunchpadView 
+            onNavigate={setCurrentView} 
+            userName={user.name} 
+          />
+        )}
 
-          {(currentView === ViewState.VOICE_ANALYSIS) && (
-            <AnalysisView 
-              language={language} 
-              onBack={() => setCurrentView(ViewState.DASHBOARD)} 
-              initialTab="voice"
-            />
-          )}
+        {currentView === ViewState.DASHBOARD && (
+          <DashboardView onViewChange={setCurrentView} />
+        )}
 
-          {(currentView === ViewState.TEXT_ANALYSIS) && (
-            <AnalysisView 
-              language={language} 
-              onBack={() => setCurrentView(ViewState.DASHBOARD)} 
-              initialTab="text"
-            />
-          )}
-          
-          {currentView === ViewState.EDUCATION && (
-            <div className="flex flex-col h-full">
-              <BackButton />
-              <div className="flex flex-col items-center justify-center h-[50vh] text-slate-400 dark:text-slate-500 animate-pulse">
-                <Sparkles className="w-12 h-12 mb-4 text-slate-200 dark:text-slate-700" />
-                <p>Patient Education Modules Loading...</p>
-              </div>
-            </div>
-          )}
-          
-          {currentView === ViewState.SETTINGS && (
-            <div className={`glass-panel p-8 rounded-2xl max-w-2xl mx-auto ${highContrast ? 'border-2 border-black bg-white' : ''}`}>
-              <BackButton />
-              <h2 className="text-xl font-bold mb-4 dark:text-white">System Settings</h2>
-              <div className="space-y-4">
-                 
-                 {/* High Contrast Toggle */}
-                 <div 
-                   onClick={() => setHighContrast(!highContrast)}
-                   className="flex justify-between items-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg cursor-pointer hover:bg-white/80 dark:hover:bg-slate-800 transition-colors"
-                 >
-                    <span className="text-sm font-medium dark:text-slate-200">High Contrast Mode</span>
-                    <div className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${highContrast ? 'bg-black' : 'bg-slate-200 dark:bg-slate-600'}`}>
-                      <div className={`w-4 h-4 bg-white rounded-full shadow-sm absolute top-1 left-1 transition-transform duration-300 ${highContrast ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                    </div>
-                 </div>
+        {currentView === ViewState.IMAGE_ANALYSIS && (
+          <AnalysisView 
+            language={language}
+            onLanguageChange={setLanguage}
+            onBack={() => setCurrentView(ViewState.LAUNCHPAD)}
+            initialTab="image"
+            user={user}
+          />
+        )}
+        
+        {currentView === ViewState.VOICE_ANALYSIS && (
+          <AnalysisView 
+            language={language}
+            onLanguageChange={setLanguage}
+            onBack={() => setCurrentView(ViewState.LAUNCHPAD)}
+            initialTab="voice"
+            user={user}
+          />
+        )}
 
-                 <div className="flex justify-between items-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg cursor-pointer hover:bg-white/80 dark:hover:bg-slate-800 transition-colors">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium dark:text-slate-200">Data Persistence</span>
-                      <span className="text-xs text-slate-400 dark:text-slate-400">PostgreSQL Sync Active</span>
-                    </div>
-                    <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
-                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
+        {currentView === ViewState.TEXT_ANALYSIS && (
+          <AnalysisView 
+            language={language}
+            onLanguageChange={setLanguage}
+            onBack={() => setCurrentView(ViewState.LAUNCHPAD)}
+            initialTab="text"
+            user={user}
+          />
+        )}
 
-      {/* Footer / Secret Trigger */}
-      <footer 
-        className="hidden md:block fixed bottom-0 right-0 p-4 text-[10px] text-slate-300 dark:text-slate-500 select-none cursor-default z-0 opacity-50 hover:opacity-100 transition-opacity"
-        onClick={handleFooterTap}
-      >
-        v2.1.0 {isAdmin && <span className="text-teal-400 ml-2">● DEV_MODE</span>}
-      </footer>
+        {currentView === ViewState.EDUCATION && (
+           <div className="flex flex-col items-center justify-center h-full text-zinc-500">
+             <BookOpen className="w-12 h-12 mb-4 opacity-50" />
+             <h2 className="text-xl font-bold text-black dark:text-white">Medical Library</h2>
+             <p className="max-w-md text-center mt-2">Access to medical protocols and drug interaction databases coming soon.</p>
+             <button onClick={() => setCurrentView(ViewState.LAUNCHPAD)} className="mt-6 text-sm underline">Return Home</button>
+           </div>
+        )}
 
-      {/* Easter Egg Modal */}
-      {showEasterEgg && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md animate-fade-in px-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-8 max-w-sm w-full shadow-2xl relative overflow-hidden transform transition-all hover:scale-105 border dark:border-slate-700">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500"></div>
-            <button 
-              onClick={() => setShowEasterEgg(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="flex items-center space-x-3 mb-4">
-              <Sparkles className="w-6 h-6 text-purple-500 animate-spin-slow" />
-              <h3 className="font-bold text-slate-800 dark:text-white">Daily Wisdom</h3>
-            </div>
-            <p className="text-slate-600 dark:text-slate-300 text-lg font-medium leading-relaxed font-serif italic">
-              "{easterEggContent}"
-            </p>
+        {currentView === ViewState.SETTINGS && (
+          <SettingsView 
+             user={user} 
+             onBack={() => setCurrentView(ViewState.LAUNCHPAD)}
+             highContrast={highContrast}
+             setHighContrast={setHighContrast}
+             language={language}
+             setLanguage={setLanguage}
+          />
+        )}
+
+        {/* Easter Egg Overlay */}
+        {showEasterEgg && (
+          <div 
+             className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8 animate-fade-in"
+             onClick={() => setShowEasterEgg(false)}
+          >
+             <div className="text-center max-w-lg">
+                <Sparkles className="w-12 h-12 text-yellow-400 mx-auto mb-6 animate-spin" />
+                <h3 className="text-2xl font-bold text-white mb-4">Daily Health Fact</h3>
+                <p className="text-xl text-zinc-300 font-serif italic leading-relaxed">"{easterEggContent}"</p>
+                <p className="text-sm text-zinc-500 mt-8">Tap anywhere to close</p>
+             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Global Styles for Animations */}
-      <style>{`
-        .animate-fade-in {
-          animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(15px) scale(0.98); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .animate-blob {
-          animation: blob 10s infinite alternate;
-        }
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        .animate-spin-slow {
-          animation: spin 3s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-      `}</style>
+        {/* Admin Secret Menu */}
+        {isAdmin && (
+           <div className="fixed bottom-4 right-4 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse z-50">
+             ADMIN MODE ACTIVE
+           </div>
+        )}
+        
+        {/* Secret Footer Trigger */}
+        <div 
+          className="fixed bottom-0 left-0 right-0 h-4 z-50"
+          onClick={handleFooterTap}
+        />
+
+      </main>
     </div>
   );
 };
