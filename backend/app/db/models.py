@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import JSON,Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.sql import func
 from app.db.base import Base
 
@@ -24,4 +24,12 @@ class Report(Base):
     result = Column(String, nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     upload_id = Column(Integer, ForeignKey("uploads.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True)
+    action = Column(String, nullable=False)
+    user_id = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
