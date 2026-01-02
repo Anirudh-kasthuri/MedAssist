@@ -8,17 +8,16 @@ from app.db.session import get_db
 from app.db.models import User
 from app.core.security import create_access_token
 
-router = APIRouter(tags=["Auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# Password hashing (bcrypt-free, stable)
 pwd_context = CryptContext(
     schemes=["pbkdf2_sha256"],
     deprecated="auto"
 )
 
-# -------------------------
+# --------------------
 # Schemas
-# -------------------------
+# --------------------
 
 class RegisterRequest(BaseModel):
     username: str
@@ -30,9 +29,9 @@ class RegisterResponse(BaseModel):
     username: str
 
 
-# -------------------------
+# --------------------
 # Utils
-# -------------------------
+# --------------------
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -42,30 +41,15 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-# -------------------------
+# --------------------
 # Routes
-# -------------------------
+# --------------------
 
-@router.post(
-    "/register",
-    response_model=RegisterResponse,
-    status_code=status.HTTP_201_CREATED
-)
-def register(
-    data: RegisterRequest,
-    db: Session = Depends(get_db)
-):
-    existing = (
-        db.query(User)
-        .filter(User.username == data.username)
-        .first()
-    )
-
+@router.post("/register", response_model=RegisterResponse, status_code=201)
+def register(data: RegisterRequest, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.username == data.username).first()
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="User already exists"
-        )
+        raise HTTPException(status_code=400, detail="User already exists")
 
     user = User(
         username=data.username,
@@ -84,20 +68,12 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    user = (
-        db.query(User)
-        .filter(User.username == form_data.username)
-        .first()
-    )
+    user = db.query(User).filter(
+        User.username == form_data.username
+    ).first()
 
-    if not user or not verify_password(
-        form_data.password,
-        user.password_hash
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials"
-        )
+    if not user or not verify_password(form_data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token({"sub": str(user.id)})
 
