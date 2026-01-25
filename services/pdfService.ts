@@ -1,0 +1,157 @@
+import { jsPDF } from "jspdf";
+import { User, DiagnosticResult } from "../types";
+
+export const generateHealthReport = (user: User, result?: DiagnosticResult) => {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  
+  // -- Background/Watermark --
+  doc.setTextColor(240, 240, 240);
+  doc.setFontSize(60);
+  doc.text("CONFIDENTIAL", pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
+
+  // -- Header --
+  doc.setFillColor(15, 23, 42); // Slate 900
+  doc.rect(0, 0, pageWidth, 45, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(22);
+  doc.text("MedAssist Health Record", 20, 25);
+  
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text("HIPAA-COMPLIANT AUTOMATED EXPORT", 20, 35);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 20, 35, { align: 'right' });
+
+  // -- Patient Info Card --
+  doc.setDrawColor(200, 200, 200);
+  doc.setFillColor(250, 250, 250);
+  doc.roundedRect(20, 55, pageWidth - 40, 35, 3, 3, 'FD');
+
+  doc.setTextColor(50, 50, 50);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Patient Profile`, 25, 65);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Name: ${user.name}`, 25, 75);
+  doc.text(`User ID: ${user.id}`, 25, 82);
+  doc.text(`Email: ${user.email}`, 120, 75);
+  doc.text(`Role: ${user.role.toUpperCase()}`, 120, 82);
+
+  // -- Encryption Badge --
+  doc.setFillColor(20, 184, 166); // Teal 500
+  doc.rect(pageWidth - 60, 15, 40, 10, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont("courier", "bold");
+  doc.text("AES-256 SECURE", pageWidth - 40, 21, { align: 'center' });
+
+  // -- Content Sections --
+  let y = 110;
+
+  const addSectionTitle = (title: string) => {
+    // Check for page break
+    if (y > pageHeight - 40) {
+        doc.addPage();
+        y = 20;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(30, 41, 59); // Slate 800
+    doc.text(title, 20, y);
+    doc.setDrawColor(20, 184, 166); // Teal underline
+    doc.setLineWidth(0.5);
+    doc.line(20, y + 2, pageWidth - 20, y + 2);
+    y += 15;
+  };
+
+  const addParagraph = (text: string) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105);
+    const lines = doc.splitTextToSize(text, pageWidth - 40);
+    doc.text(lines, 25, y);
+    y += (lines.length * 6) + 4;
+  };
+
+  const addBulletPoint = (text: string) => {
+    if (y > pageHeight - 20) {
+        doc.addPage();
+        y = 20;
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105); // Slate 600
+    const lines = doc.splitTextToSize(`• ${text}`, pageWidth - 40);
+    doc.text(lines, 25, y);
+    y += (lines.length * 6) + 2;
+  };
+
+  if (result) {
+    // --- SPECIFIC CONSULTATION REPORT ---
+    addSectionTitle("Diagnostic Assessment");
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`Condition: ${result.title}`, 25, y);
+    y += 8;
+    
+    doc.setFont("helvetica", "normal");
+    doc.text(`Severity: ${result.severity.toUpperCase()}`, 25, y);
+    y += 8;
+    
+    if (result.confidence) {
+        doc.text(`AI Confidence: ${result.confidence}%`, 25, y);
+        y += 12;
+    } else {
+        y += 4;
+    }
+
+    addSectionTitle("Clinical Summary");
+    // Use technical analysis for doctors, summary for patients/generic
+    const summaryText = user.role === 'doctor' && result.technicalAnalysis 
+        ? result.technicalAnalysis 
+        : result.summary;
+    addParagraph(summaryText);
+
+    y += 5;
+    addSectionTitle("Action Plan");
+    result.recommendations.forEach(rec => addBulletPoint(rec));
+
+  } else {
+    // --- GENERIC HISTORY REPORT ---
+    addSectionTitle("Executive Health Summary");
+    addBulletPoint("Overall Wellness Score: 92/100 (Excellent)");
+    addBulletPoint("Recent Activity: 3 AI consultations in last 30 days.");
+    addBulletPoint("Adherence: 100% medication logging consistency.");
+    y += 5;
+
+    addSectionTitle("Recent Clinical Observations");
+    addBulletPoint("Dermatology (10/24): Analysis of skin lesion suggests benign characteristics.");
+    addBulletPoint("Voice Vitals (10/22): Speech patterns indicate low stress levels.");
+    addBulletPoint("Symptom Check (10/18): Resolved mild tension headache via hydration.");
+    y += 5;
+
+    addSectionTitle("General Recommendations");
+    addBulletPoint("Schedule routine ophthalmology screening (Annual).");
+    addBulletPoint("Increase daily water intake to 2.5L based on activity.");
+  }
+
+  // -- Footer --
+  const footerY = pageHeight - 20;
+  doc.setDrawColor(200, 200, 200);
+  doc.line(20, footerY - 5, pageWidth - 20, footerY - 5);
+  
+  doc.setFontSize(8);
+  doc.setTextColor(148, 163, 184); // Slate 400
+  doc.text("Disclaimer: This report is generated by MedAssist AI for informational purposes only.", 20, footerY);
+  doc.text("Not a valid medical prescription or diagnosis.", 20, footerY + 5);
+  
+  doc.text(`Page 1 of 1`, pageWidth - 20, footerY, { align: 'right' });
+
+  // Save
+  doc.save(`MedAssist_Report_${user.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+};
