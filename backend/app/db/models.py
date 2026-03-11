@@ -8,8 +8,12 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
+<<<<<<< HEAD
     oauth_provider = Column(String, nullable=True)
     
+=======
+
+>>>>>>> 8b085f157b0fac3206da4a91af4440639604e366
 class Upload(Base):
     __tablename__ = "uploads"
 

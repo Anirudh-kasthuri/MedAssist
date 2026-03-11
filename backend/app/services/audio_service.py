@@ -1,12 +1,5 @@
-import whisper
-
-# Load model ONCE
-model = whisper.load_model("base")
-
-
-def transcribe_audio(file_path: str) -> str:
-    """
-    Transcribes an audio file using Whisper
-    """
-    result = model.transcribe(file_path)
-    return result["text"]
+def transcribe_audio(file_path: str):
+    return {
+        "transcription": "Audio transcription placeholder.",
+        "confidence": 0.92
+    }

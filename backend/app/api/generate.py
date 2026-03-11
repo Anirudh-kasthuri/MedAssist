@@ -10,6 +10,7 @@ router = APIRouter(prefix="/generate", tags=["Generate"])
 
 
 @router.post(
+<<<<<<< HEAD
     "/generate",
     response_model=GenerateReportResponse
 )
@@ -47,6 +48,13 @@ def generate_report(
         "pdf_path": f"generated_reports/report_{report.id}.pdf"
     }
 
+=======
+    "",
+    response_model=GenerateResponse,
+    status_code=status.HTTP_201_CREATED
+)
+def generate_report(
+>>>>>>> 8b085f157b0fac3206da4a91af4440639604e366
     data: GenerateRequest,
     db: Session = Depends(get_db),
     user=Depends(get_current_user)

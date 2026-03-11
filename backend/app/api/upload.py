@@ -7,9 +7,12 @@ from app.api.dependencies import get_current_user
 from app.db.session import get_db
 from app.db.models import Upload
 from app.services.image_service import analyze_medical_image
+<<<<<<< HEAD
 from app.api.rate_limit import rate_limiter
 
 
+=======
+>>>>>>> 8b085f157b0fac3206da4a91af4440639604e366
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
@@ -17,10 +20,14 @@ UPLOAD_DIR = "uploads/images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
+<<<<<<< HEAD
 @router.post(
         "/image",
         dependencies=[Depends(rate_limiter("upload_image"))]
 )
+=======
+@router.post("/image")
+>>>>>>> 8b085f157b0fac3206da4a91af4440639604e366
 def upload_image(
     file: UploadFile = File(...),
     user=Depends(get_current_user),
