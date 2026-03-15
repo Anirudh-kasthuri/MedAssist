@@ -6,12 +6,12 @@ export const generateHealthReport = (user: User, result?: DiagnosticResult) => {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   
-  // -- Background/Watermark --
+
   doc.setTextColor(240, 240, 240);
   doc.setFontSize(60);
   doc.text("CONFIDENTIAL", pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
 
-  // -- Header --
+
   doc.setFillColor(15, 23, 42); // Slate 900
   doc.rect(0, 0, pageWidth, 45, 'F');
   
@@ -25,7 +25,7 @@ export const generateHealthReport = (user: User, result?: DiagnosticResult) => {
   doc.text("HIPAA-COMPLIANT AUTOMATED EXPORT", 20, 35);
   doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth - 20, 35, { align: 'right' });
 
-  // -- Patient Info Card --
+
   doc.setDrawColor(200, 200, 200);
   doc.setFillColor(250, 250, 250);
   doc.roundedRect(20, 55, pageWidth - 40, 35, 3, 3, 'FD');
@@ -42,7 +42,7 @@ export const generateHealthReport = (user: User, result?: DiagnosticResult) => {
   doc.text(`Email: ${user.email}`, 120, 75);
   doc.text(`Role: ${user.role.toUpperCase()}`, 120, 82);
 
-  // -- Encryption Badge --
+
   doc.setFillColor(20, 184, 166); // Teal 500
   doc.rect(pageWidth - 60, 15, 40, 10, 'F');
   doc.setTextColor(255, 255, 255);
@@ -140,7 +140,7 @@ export const generateHealthReport = (user: User, result?: DiagnosticResult) => {
     addBulletPoint("Increase daily water intake to 2.5L based on activity.");
   }
 
-  // -- Footer --
+
   const footerY = pageHeight - 20;
   doc.setDrawColor(200, 200, 200);
   doc.line(20, footerY - 5, pageWidth - 20, footerY - 5);
@@ -152,6 +152,6 @@ export const generateHealthReport = (user: User, result?: DiagnosticResult) => {
   
   doc.text(`Page 1 of 1`, pageWidth - 20, footerY, { align: 'right' });
 
-  // Save
+  
   doc.save(`MedAssist_Report_${user.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
 };
