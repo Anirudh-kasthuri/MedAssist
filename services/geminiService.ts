@@ -3,10 +3,8 @@ import { DiagnosticResult, Language } from "../types";
 
 const apiKey = process.env.API_KEY || '';
 
-// Initialize Gemini Client
 const ai = new GoogleGenAI({ apiKey });
 
-// Helper to clean response text (remove markdown code blocks if present)
 const cleanText = (text: string) => text.replace(/```json/g, '').replace(/```/g, '').trim();
 
 export const analyzeMedicalImage = async (
