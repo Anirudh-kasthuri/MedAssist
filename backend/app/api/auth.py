@@ -1,24 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
 from app.db.session import get_db
 from app.db.models import User
 from app.core.security import create_access_token
+from app.core.config import GOOGLE_CLIENT_ID
 
-router = APIRouter(tags=["Auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
-# Password hashing (bcrypt-free, stable)
 pwd_context = CryptContext(
     schemes=["pbkdf2_sha256"],
     deprecated="auto"
 )
-
-# -------------------------
-# Schemas
-# -------------------------
 
 class RegisterRequest(BaseModel):
     username: str
@@ -30,9 +28,14 @@ class RegisterResponse(BaseModel):
     username: str
 
 
-# -------------------------
-# Utils
-# -------------------------
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class GoogleLoginRequest(BaseModel):
+    token: str
+
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -41,10 +44,6 @@ def hash_password(password: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
-
-# -------------------------
-# Routes
-# -------------------------
 
 @router.post(
     "/register",
@@ -55,17 +54,10 @@ def register(
     data: RegisterRequest,
     db: Session = Depends(get_db)
 ):
-    existing = (
-        db.query(User)
-        .filter(User.username == data.username)
-        .first()
-    )
+    existing = db.query(User).filter(User.username == data.username).first()
 
     if existing:
-        raise HTTPException(
-            status_code=400,
-            detail="User already exists"
-        )
+        raise HTTPException(status_code=400, detail="User already exists")
 
     user = User(
         username=data.username,
@@ -81,21 +73,22 @@ def register(
 
 @router.post("/login")
 def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    data: LoginRequest,
     db: Session = Depends(get_db)
 ):
-    user = (
-        db.query(User)
-        .filter(User.username == form_data.username)
-        .first()
-    )
+    user = db.query(User).filter(
+        User.username == data.username
+    ).first()
 
-    if not user or not verify_password(
-        form_data.password,
-        user.password_hash
-    ):
+    if not user:
         raise HTTPException(
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials"
         )
 
@@ -103,5 +96,61 @@ def login(
 
     return {
         "access_token": token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "username": user.username
+        }
+    }
+
+
+
+@router.post("/google")
+def google_login(
+    data: GoogleLoginRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        payload = id_token.verify_oauth2_token(
+            data.token,
+            requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Google token"
+        )
+
+    email = payload.get("email")
+    name = payload.get("name", "google_user")
+
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google account has no email"
+        )
+
+    user = db.query(User).filter(User.username == email).first()
+
+    if not user:
+        user = User(
+            username=email,
+            password_hash="GOOGLE_OAUTH"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_access_token({"sub": str(user.id)})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "name": name,
+            "oauth": True
+        }
     }
