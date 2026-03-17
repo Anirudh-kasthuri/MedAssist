@@ -23,10 +23,6 @@ class GenerateReportResponse(BaseModel):
     pdf_path: str
 
 
-# -----------------------------
-# TEXT SYMPTOM ANALYSIS (AI)
-# -----------------------------
-
 @router.post(
     "/analyze-text",
     dependencies=[Depends(rate_limiter("analyze_text"))]
@@ -47,9 +43,6 @@ def analyze_text_endpoint(payload: TextRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# -----------------------------
-# GET USER REPORTS
-# -----------------------------
 
 @router.get("/")
 def get_reports(
@@ -64,9 +57,7 @@ def get_reports(
     )
 
 
-# -----------------------------
-# GENERATE PDF REPORT
-# -----------------------------
+
 
 @router.post(
     "/generate",
