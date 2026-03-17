@@ -1,117 +1,55 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-import json
+import os
+import shutil
+import traceback
+import uuid
 
 from app.api.dependencies import get_current_user
 from app.db.session import get_db
-from app.db.models import Report, Upload, User
-from app.services.ai_gateway import analyze_text
-from app.services.report_generator import generate_medical_report
-from app.core.redis import redis_client
-from app.api.rate_limit import rate_limiter
+from app.db.models import Upload
+from app.services.image_service import analyze_medical_image
 
-router = APIRouter(prefix="/reports", tags=["Reports"])
+router = APIRouter(tags=["Upload"])
 
-
-class TextRequest(BaseModel):
-    text: str
+UPLOAD_DIR = "uploads/images"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-class GenerateReportResponse(BaseModel):
-    report_id: int
-    pdf_path: str
-
-
-# -----------------------------
-# TEXT SYMPTOM ANALYSIS (AI)
-# -----------------------------
-
-@router.post(
-    "/analyze-text",
-    dependencies=[Depends(rate_limiter("analyze_text"))]
-)
-@router.post("/analyze-text")
-def analyze_text_endpoint(payload: TextRequest):
+@router.post("/image")
+def upload_image(
+    file: UploadFile = File(...),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
 
     try:
-        result = analyze_text(payload.text)
 
-        # If result is already a dict, return it directly
-        if isinstance(result, dict):
-            return result
+        ext = os.path.splitext(file.filename)[1]
+        filename = str(uuid.uuid4()) + ext
+        file_path = os.path.join(UPLOAD_DIR, filename)
 
-        # If it's accidentally a string, parse it
-        return json.loads(result)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        image_analysis = analyze_medical_image(file_path)
+
+        upload = Upload(
+            filename=filename,
+            user_id=user.id
+        )
+
+        db.add(upload)
+        db.commit()
+        db.refresh(upload)
+
+        return image_analysis
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-# -----------------------------
-# GET USER REPORTS
-# -----------------------------
+        traceback.print_exc()
 
-@router.get("/")
-def get_reports(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    return (
-        db.query(Report)
-        .filter(Report.user_id == user.id)
-        .order_by(Report.created_at.desc())
-        .all()
-    )
-
-
-# -----------------------------
-# GENERATE PDF REPORT
-# -----------------------------
-
-@router.post(
-    "/generate",
-    response_model=GenerateReportResponse,
-    dependencies=[Depends(rate_limiter("generate_report"))]
-)
-def generate_report(
-    upload_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
-):
-
-    cache_key = f"report:{user.id}:{upload_id}"
-
-    cached_pdf = redis_client.get(cache_key)
-    if cached_pdf:
-        return {
-            "report_id": -1,
-            "pdf_path": cached_pdf
-        }
-
-    upload = (
-        db.query(Upload)
-        .filter(Upload.id == upload_id, Upload.user_id == user.id)
-        .first()
-    )
-
-    if not upload:
-        raise HTTPException(status_code=404, detail="Upload not found")
-
-    ai_result, pdf_path = generate_medical_report(upload.filename)
-
-    report = Report(
-        result=ai_result,
-        user_id=user.id,
-        upload_id=upload.id
-    )
-
-    db.add(report)
-    db.commit()
-    db.refresh(report)
-
-    redis_client.setex(cache_key, 3600, pdf_path)
-
-    return {
-        "report_id": report.id,
-        "pdf_path": pdf_path
-    }
+        raise HTTPException(
+            status_code=500,
+            detail="Image analysis failed"
+        )
