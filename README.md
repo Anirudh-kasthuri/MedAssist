@@ -1,4 +1,4 @@
-# 🧠 MedAssist AI — Intelligent Clinical Decision Support System
+# MedAssist AI — Intelligent Clinical Decision Support System
 
 MedAssist AI is a full-stack project I built to explore how modern AI models can assist in early-stage medical triage. The idea was to simulate something close to a real clinical workflow—taking in symptoms, images, or even voice input, and turning that into structured, explainable insights.
 
@@ -6,9 +6,9 @@ Everything runs locally after setup, so there are no API dependencies once the m
 
 ---
 
-## 🚀 What it can do
+##  What it can do
 
-### 🩺 Symptom Analysis
+###  Symptom Analysis
 
 - Takes natural language input (e.g., “persistent cough and fever”)
 - Uses a locally hosted **FLAN-T5 Large** model for reasoning
@@ -21,7 +21,7 @@ Everything runs locally after setup, so there are no API dependencies once the m
 
 ---
 
-### 🖼️ Medical Image Analysis
+###  Medical Image Analysis
 
 - Upload X-rays, skin images, or scans
 - Uses **BLIP** to generate image captions
@@ -29,7 +29,7 @@ Everything runs locally after setup, so there are no API dependencies once the m
 
 ---
 
-### 🎙️ Voice-Based Consultation
+###  Voice-Based Consultation
 
 - Speak your symptoms directly
 - **Whisper** handles real-time speech-to-text
@@ -37,7 +37,7 @@ Everything runs locally after setup, so there are no API dependencies once the m
 
 ---
 
-### 📊 Structured Output
+###  Structured Output
 
 - Clean diagnostic-style cards
 - Severity levels: Low / Medium / High
@@ -46,7 +46,7 @@ Everything runs locally after setup, so there are no API dependencies once the m
 
 ---
 
-### ⚡ Redis Caching
+###  Redis Caching
 
 - Responses are cached using Redis
 - Faster repeat queries
@@ -54,14 +54,14 @@ Everything runs locally after setup, so there are no API dependencies once the m
 
 ---
 
-### 📄 PDF Reports
+###  PDF Reports
 
 - Export results as a PDF
 - Useful for saving or sharing outputs
 
 ---
 
-## 🧱 Tech Stack
+##  Tech Stack
 
 ### Frontend
 - React + TypeScript  
@@ -88,7 +88,7 @@ Everything runs locally after setup, so there are no API dependencies once the m
 
 ---
 
-## 🧠 Architecture Overview
+##  Architecture Overview
 
 ```
 User Input (Text / Image / Voice)
@@ -110,7 +110,7 @@ Image AI      Text AI         Voice AI       Redis Cache
 
 ---
 
-## ⚙️ Setup
+##  Setup
 
 ### 1. Clone the repo
 
@@ -183,7 +183,7 @@ npm run dev
 
 ---
 
-## 🔐 Authentication
+##  Authentication
 
 - JWT-based auth
 - Protected API routes
@@ -191,7 +191,7 @@ npm run dev
 
 ---
 
-## 📌 Notes / Highlights
+##  Notes / Highlights
 
 - Built as a **multi-modal AI system** (text, image, voice)
 - Runs **entirely offline after setup**
@@ -202,7 +202,7 @@ npm run dev
 
 ---
 
-## ⚠️ Disclaimer
+##  Disclaimer
 
 This is a **demo / educational project**.
 
@@ -210,7 +210,7 @@ It is **not** a medical tool and should not be used for diagnosis or treatment d
 
 ---
 
-## 📈 Possible Improvements
+##  Possible Improvements
 
 - Use medical-specific vision models (e.g., BioMedCLIP)
 - Integrate medical knowledge sources (PubMed, etc.)
@@ -219,8 +219,6 @@ It is **not** a medical tool and should not be used for diagnosis or treatment d
 - Package everything with Docker for easier deployment
 
 ---
-
-## 👨‍💻 About
 
 I built this to explore what a practical, AI-assisted healthcare workflow might look like using current tools. It’s a mix of experimentation and trying to keep things production-like where possible.
 
